@@ -132,6 +132,7 @@ SET(zone_sources
     quest_parser_collection.cpp
     raids.cpp
     raycast_mesh.cpp
+    sidecar_api/sidecar_api.cpp
     shared_task_zone_messaging.cpp
     spawn2.cpp
     spawn2.h
@@ -160,7 +161,7 @@ SET(zone_sources
     zone_event_scheduler.cpp
     zone_reload.cpp
     zoning.cpp
-)
+    )
 
 SET(zone_headers
     aa.h
@@ -257,6 +258,7 @@ SET(zone_headers
     quest_parser_collection.h
     raids.h
     raycast_mesh.h
+    sidecar_api/sidecar_api.h
     skills.h
     shared_task_zone_messaging.h
     spawn2.cpp
@@ -278,8 +280,9 @@ SET(zone_headers
     zone_config.h
     zonedb.h
     zonedump.h
+    zone_cli.h
     zone_reload.h
-)
+    zone_cli.cpp)
 
 ADD_EXECUTABLE(zone ${zone_sources} ${zone_headers})
 

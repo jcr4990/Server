@@ -1862,6 +1862,11 @@ void Zone::ResetShutdownTimer() {
 	autoshutdown_timer.SetTimer(autoshutdown_timer.GetDuration());
 }
 
+void Zone::StopShutdownTimer() {
+	LogInfo("Stopping zone shutdown timer");
+	autoshutdown_timer.Disable();
+}
+
 bool Zone::Depop(bool StartSpawnTimer) {
 	std::map<uint32,NPCType *>::iterator itr;
 	entity_list.Depop(StartSpawnTimer);

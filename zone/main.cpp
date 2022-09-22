@@ -45,9 +45,11 @@
 #include "zone.h"
 #include "queryserv.h"
 #include "command.h"
+
 #ifdef BOTS
 #include "bot_command.h"
 #endif
+
 #include "zonedb.h"
 #include "../common/zone_store.h"
 #include "titles.h"
@@ -76,6 +78,7 @@
 #include <conio.h>
 #include <process.h>
 #else
+
 #include <pthread.h>
 #include "../common/unix.h"
 
@@ -91,6 +94,8 @@ extern volatile bool is_zone_loaded;
 #include "zone_event_scheduler.h"
 #include "../common/file.h"
 #include "../common/path_manager.h"
+#include "zone_event_scheduler.h"
+#include "zone_cli.h"
 
 EntityList  entity_list;
 WorldServer worldserver;
@@ -114,20 +119,45 @@ const SPDat_Spell_Struct* spells;
 int32 SPDAT_RECORDS = -1;
 const ZoneConfig *Config;
 double frame_time = 0.0;
+EntityList               entity_list;
+WorldServer              worldserver;
+ZoneStore                zone_store;
+uint32                   numclients    = 0;
+char                     errorname[32];
+extern Zone              *zone;
+npcDecayTimes_Struct     npcCorpseDecayTimes[100];
+TitleManager             title_manager;
+QueryServ                *QServ        = 0;
+TaskManager              *task_manager = 0;
+NpcScaleManager          *npc_scale_manager;
+QuestParserCollection    *parse        = 0;
+EQEmuLogSys              LogSys;
+ZoneEventScheduler       event_scheduler;
+WorldContentService      content_service;
+const SPDat_Spell_Struct *spells;
+int32                    SPDAT_RECORDS = -1;
+const ZoneConfig         *Config;
+double                   frame_time    = 0.0;
 
 void Shutdown();
-void UpdateWindowTitle(char* iNewTitle);
+void UpdateWindowTitle(char *iNewTitle);
 void CatchSignal(int sig_num);
 
 extern void MapOpcodes();
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
 	RegisterExecutablePlatform(ExePlatformZone);
 	LogSys.LoadLogSettingsDefaults();
 
 	set_exception_handler();
 
 	path.LoadPaths();
+
+	// silence logging if we ran a command
+	if (ZoneCLI::RanConsoleCommand(argc, argv)) {
+		LogSys.SilenceConsoleLogging();
+	}
 
 #ifdef USE_MAP_MMFS
 	if (argc == 3 && strcasecmp(argv[1], "convert_map") == 0) {
@@ -158,77 +188,80 @@ int main(int argc, char** argv) {
 	}
 	Config = ZoneConfig::get();
 
-	const char *zone_name;
-	uint32 instance_id = 0;
+	// static zone booting
+	const char  *zone_name;
+	uint32      instance_id = 0;
 	std::string z_name;
-	if (argc == 4) {
-		instance_id = atoi(argv[3]);
-		worldserver.SetLauncherName(argv[2]);
-		auto zone_port = Strings::Split(argv[1], ':');
+	if (!ZoneCLI::RanSidecarCommand(argc, argv)) {
+		if (argc == 4) {
+			instance_id = atoi(argv[3]);
+			worldserver.SetLauncherName(argv[2]);
+			auto zone_port = Strings::Split(argv[1], ':');
 
-		if (!zone_port.empty()) {
-			z_name = zone_port[0];
+			if (!zone_port.empty()) {
+				z_name = zone_port[0];
+			}
+
+			if (zone_port.size() > 1) {
+				std::string p_name = zone_port[1];
+				Config->SetZonePort(atoi(p_name.c_str()));
+			}
+
+			worldserver.SetLaunchedName(z_name.c_str());
+			if (strncmp(z_name.c_str(), "dynamic_", 8) == 0) {
+				zone_name = ".";
+			}
+			else {
+				zone_name = z_name.c_str();
+			}
 		}
+		else if (argc == 3) {
+			worldserver.SetLauncherName(argv[2]);
+			auto zone_port = Strings::Split(argv[1], ':');
 
-		if (zone_port.size() > 1) {
-			std::string p_name = zone_port[1];
-			Config->SetZonePort(atoi(p_name.c_str()));
+			if (!zone_port.empty()) {
+				z_name = zone_port[0];
+			}
+
+			if (zone_port.size() > 1) {
+				std::string p_name = zone_port[1];
+				Config->SetZonePort(atoi(p_name.c_str()));
+			}
+
+			worldserver.SetLaunchedName(z_name.c_str());
+			if (strncmp(z_name.c_str(), "dynamic_", 8) == 0) {
+				zone_name = ".";
+			}
+			else {
+				zone_name = z_name.c_str();
+			}
 		}
+		else if (argc == 2) {
+			worldserver.SetLauncherName("NONE");
+			auto zone_port = Strings::Split(argv[1], ':');
 
-		worldserver.SetLaunchedName(z_name.c_str());
-		if (strncmp(z_name.c_str(), "dynamic_", 8) == 0) {
-			zone_name = ".";
+			if (!zone_port.empty()) {
+				z_name = zone_port[0];
+			}
+
+			if (zone_port.size() > 1) {
+				std::string p_name = zone_port[1];
+				Config->SetZonePort(atoi(p_name.c_str()));
+			}
+
+			worldserver.SetLaunchedName(z_name.c_str());
+			if (strncmp(z_name.c_str(), "dynamic_", 8) == 0) {
+				zone_name = ".";
+			}
+			else {
+				zone_name = z_name.c_str();
+			}
 		}
 		else {
-			zone_name = z_name.c_str();
-		}
-	}
-	else if (argc == 3) {
-		worldserver.SetLauncherName(argv[2]);
-		auto zone_port = Strings::Split(argv[1], ':');
-
-		if (!zone_port.empty()) {
-			z_name = zone_port[0];
-		}
-
-		if (zone_port.size() > 1) {
-			std::string p_name = zone_port[1];
-			Config->SetZonePort(atoi(p_name.c_str()));
-		}
-
-		worldserver.SetLaunchedName(z_name.c_str());
-		if (strncmp(z_name.c_str(), "dynamic_", 8) == 0) {
 			zone_name = ".";
+			worldserver.SetLaunchedName(".");
+			worldserver.SetLauncherName("NONE");
 		}
-		else {
-			zone_name = z_name.c_str();
-		}
-	}
-	else if (argc == 2) {
-		worldserver.SetLauncherName("NONE");
-		auto zone_port = Strings::Split(argv[1], ':');
-
-		if (!zone_port.empty()) {
-			z_name = zone_port[0];
-		}
-
-		if (zone_port.size() > 1) {
-			std::string p_name = zone_port[1];
-			Config->SetZonePort(atoi(p_name.c_str()));
-		}
-
-		worldserver.SetLaunchedName(z_name.c_str());
-		if (strncmp(z_name.c_str(), "dynamic_", 8) == 0) {
-			zone_name = ".";
-		}
-		else {
-			zone_name = z_name.c_str();
-		}
-	}
-	else {
-		zone_name = ".";
-		worldserver.SetLaunchedName(".");
-		worldserver.SetLauncherName("NONE");
 	}
 
 	LogInfo("Connecting to MySQL... ");
@@ -237,7 +270,8 @@ int main(int argc, char** argv) {
 		Config->DatabaseUsername.c_str(),
 		Config->DatabasePassword.c_str(),
 		Config->DatabaseDB.c_str(),
-		Config->DatabasePort)) {
+		Config->DatabasePort
+	)) {
 		LogError("Cannot continue without a database connection");
 		return 1;
 	}
@@ -247,7 +281,7 @@ int main(int argc, char** argv) {
 	 */
 	if (!Config->ContentDbHost.empty()) {
 		if (!content_db.Connect(
-			Config->ContentDbHost.c_str() ,
+			Config->ContentDbHost.c_str(),
 			Config->ContentDbUsername.c_str(),
 			Config->ContentDbPassword.c_str(),
 			Config->ContentDbName.c_str(),
@@ -257,11 +291,17 @@ int main(int argc, char** argv) {
 			LogError("Cannot continue without a content database connection");
 			return 1;
 		}
-	} else {
+	}
+	else {
 		content_db.SetMysql(database.getMySQL());
 	}
 
-	/* Register Log System and Settings */
+	// command handler
+	if (ZoneCLI::RanConsoleCommand(argc, argv) && !ZoneCLI::RanSidecarCommand(argc, argv)) {
+		LogSys.EnableConsoleLogging();
+		ZoneCLI::CommandHandler(argc, argv);
+	}
+
 	LogSys.SetDatabase(&database)
 		->SetLogPath(path.GetLogPath())
 		->LoadLogDatabaseSettings()
@@ -457,6 +497,11 @@ int main(int argc, char** argv) {
 	worldserver.Connect();
 	worldserver.SetScheduler(&event_scheduler);
 
+	// sidecar command handler
+	if (ZoneCLI::RanConsoleCommand(argc, argv) && ZoneCLI::RanSidecarCommand(argc, argv)) {
+		ZoneCLI::CommandHandler(argc, argv);
+	}
+
 	Timer InterserverTimer(INTERSERVER_TIMER); // does MySQL pings and auto-reconnect
 #ifdef EQPROFILE
 #ifdef PROFILE_DUMP_TIME
@@ -488,13 +533,13 @@ int main(int argc, char** argv) {
 
 	Timer quest_timers(100);
 	UpdateWindowTitle(nullptr);
-	std::shared_ptr<EQStreamInterface> eqss;
-	EQStreamInterface *eqsi;
-	std::unique_ptr<EQ::Net::EQStreamManager> eqsm;
+	std::shared_ptr<EQStreamInterface>                 eqss;
+	EQStreamInterface                                  *eqsi;
+	std::unique_ptr<EQ::Net::EQStreamManager>          eqsm;
 	std::chrono::time_point<std::chrono::system_clock> frame_prev = std::chrono::system_clock::now();
-	std::unique_ptr<EQ::Net::WebsocketServer> ws_server;
+	std::unique_ptr<EQ::Net::WebsocketServer>          ws_server;
 
-	auto loop_fn = [&](EQ::Timer* t) {
+	auto loop_fn = [&](EQ::Timer *t) {
 		//Advance the timer to our current point in time
 		Timer::SetCurrentTime();
 
@@ -522,18 +567,22 @@ int main(int argc, char** argv) {
 			LogInfo("Starting EQ Network server on port {}", Config->ZonePort);
 
 			EQStreamManagerInterfaceOptions opts(Config->ZonePort, false, RuleB(Network, CompressZoneStream));
-			opts.daybreak_options.resend_delay_ms = RuleI(Network, ResendDelayBaseMS);
+			opts.daybreak_options.resend_delay_ms     = RuleI(Network, ResendDelayBaseMS);
 			opts.daybreak_options.resend_delay_factor = RuleR(Network, ResendDelayFactor);
-			opts.daybreak_options.resend_delay_min = RuleI(Network, ResendDelayMinMS);
-			opts.daybreak_options.resend_delay_max = RuleI(Network, ResendDelayMaxMS);
-			opts.daybreak_options.outgoing_data_rate = RuleR(Network, ClientDataRate);
-			eqsm = std::make_unique<EQ::Net::EQStreamManager>(opts);
+			opts.daybreak_options.resend_delay_min    = RuleI(Network, ResendDelayMinMS);
+			opts.daybreak_options.resend_delay_max    = RuleI(Network, ResendDelayMaxMS);
+			opts.daybreak_options.outgoing_data_rate  = RuleR(Network, ClientDataRate);
+			eqsm      = std::make_unique<EQ::Net::EQStreamManager>(opts);
 			eqsf_open = true;
 
-			eqsm->OnNewConnection([&stream_identifier](std::shared_ptr<EQ::Net::EQStream> stream) {
-				stream_identifier.AddStream(stream);
-				LogInfo("New connection from IP {}:{}", long2ip(stream->GetRemoteIP()), ntohs(stream->GetRemotePort()));
-			});
+			eqsm->OnNewConnection(
+				[&stream_identifier](std::shared_ptr<EQ::Net::EQStream> stream) {
+					stream_identifier.AddStream(stream);
+					LogInfo("New connection from IP {}:{}",
+							long2ip(stream->GetRemoteIP()),
+							ntohs(stream->GetRemotePort()));
+				}
+			);
 		}
 
 		//give the stream identifier a chance to do its work....
@@ -542,7 +591,7 @@ int main(int argc, char** argv) {
 		//check the stream identifier for any now-identified streams
 		while ((eqsi = stream_identifier.PopIdentified())) {
 			//now that we know what patch they are running, start up their client object
-			struct in_addr	in;
+			struct in_addr in;
 			in.s_addr = eqsi->GetRemoteIP();
 			LogInfo("New client from [{}]:[{}]", inet_ntoa(in), ntohs(eqsi->GetRemotePort()));
 			auto client = new Client(eqsi);
@@ -554,7 +603,15 @@ int main(int argc, char** argv) {
 		}
 		else {
 			if (worldwasconnected && is_zone_loaded) {
-				entity_list.ChannelMessageFromWorld(0, 0, ChatChannel_Broadcast, 0, 0, 100, "WARNING: World server connection lost");
+				entity_list.ChannelMessageFromWorld(
+					0,
+					0,
+					ChatChannel_Broadcast,
+					0,
+					0,
+					100,
+					"WARNING: World server connection lost"
+				);
 				worldwasconnected = false;
 			}
 		}
@@ -610,8 +667,9 @@ int main(int argc, char** argv) {
 
 	safe_delete(Config);
 
-	if (zone != 0)
+	if (zone != 0) {
 		Zone::Shutdown(true);
+	}
 	//Fix for Linux world server problem.
 	safe_delete(task_manager);
 	safe_delete(npc_scale_manager);
@@ -633,7 +691,8 @@ void Shutdown()
 	EQ::EventLoop::Get().Shutdown();
 }
 
-void CatchSignal(int sig_num) {
+void CatchSignal(int sig_num)
+{
 #ifdef _WINDOWS
 	LogInfo("Recieved signal: [{}]", sig_num);
 #endif
@@ -641,7 +700,8 @@ void CatchSignal(int sig_num) {
 }
 
 /* Update Window Title with relevant information */
-void UpdateWindowTitle(char* iNewTitle) {
+void UpdateWindowTitle(char *iNewTitle)
+{
 #ifdef _WINDOWS
 	char tmp[500];
 	if (iNewTitle) {
