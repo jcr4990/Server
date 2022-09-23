@@ -97,6 +97,7 @@ union semun {
 #include "world_boot.h"
 #include "../common/path_manager.h"
 
+#include <thread>
 
 ZoneStore           zone_store;
 ClientList          client_list;
@@ -174,6 +175,7 @@ int main(int argc, char **argv)
 	}
 #endif
 
+	std::thread(WorldBoot::BootZoneSidecar).detach();
 	WorldBoot::RegisterLoginservers();
 	WorldBoot::LoadDatabaseConnections();
 	if (!WorldBoot::DatabaseLoadRoutines(argc, argv)) {
