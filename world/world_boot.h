@@ -12,6 +12,7 @@ public:
 	static bool LoadDatabaseConnections();
 	static void CheckForServerScript(bool force_download = false);
 	static void CheckForXMLConfigUpgrade();
+	static void KillZoneSidecar(bool from_signal = false);
 	static void BootZoneSidecar();
 	static void RegisterLoginservers();
 	static bool DatabaseLoadRoutines(int argc, char **argv);
