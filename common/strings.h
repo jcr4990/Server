@@ -176,6 +176,7 @@ public:
 		return res;
 	}
 
+	static std::string MinifyJson(std::string s);
 };
 
 const std::string StringFormat(const char *format, ...);
