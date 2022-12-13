@@ -66,6 +66,7 @@ extern volatile bool RunLoops;
 #include "../common/repositories/character_spells_repository.h"
 #include "../common/repositories/character_disciplines_repository.h"
 #include "../common/repositories/character_data_repository.h"
+#include "../common/events/player_events.h"
 
 
 extern QueryServ* QServ;
@@ -11853,7 +11854,7 @@ void Client::SendPath(Mob* target)
 			target->CastToClient()->Trader ||
 			target->CastToClient()->Buyer
 		)
-	) {
+		) {
 		Message(
 			Chat::Yellow,
 			fmt::format(
@@ -11888,7 +11889,8 @@ void Client::SendPath(Mob* target)
 
 		points.push_back(a);
 		points.push_back(b);
-	} else {
+	}
+	else {
 		glm::vec3 path_start(
 			GetX(),
 			GetY(),
@@ -11901,8 +11903,8 @@ void Client::SendPath(Mob* target)
 			target->GetZ() + (target->GetSize() < 6.0 ? 6 : target->GetSize()) * HEAD_POSITION
 		);
 
-		bool partial = false;
-		bool stuck = false;
+		bool partial   = false;
+		bool stuck     = false;
 		auto path_list = zone->pathing->FindRoute(path_start, path_end, partial, stuck);
 
 		if (path_list.empty() || partial) {
@@ -11933,7 +11935,7 @@ void Client::SendPath(Mob* target)
 		p.z = GetZ();
 		points.push_back(p);
 
-		for (const auto& n : path_list) {
+		for (const auto &n: path_list) {
 			if (n.teleport) {
 				leads_to_teleporter = true;
 				break;
@@ -11959,4 +11961,20 @@ void Client::SendPath(Mob* target)
 	}
 
 	SendPathPacket(points);
+}
+
+PlayerEvent::PlayerEvent Client::GetPlayerEvent()
+{
+	auto e = PlayerEvent::PlayerEvent{};
+	e.account_id     = AccountID();
+	e.character_id   = CharacterID();
+	e.character_name = GetCleanName();
+	e.x              = GetX();
+	e.y              = GetY();
+	e.z              = GetZ();
+	e.heading        = GetHeading();
+	e.zone_id        = GetZoneID();
+	e.instance_id    = GetInstanceID();
+
+	return e;
 }
