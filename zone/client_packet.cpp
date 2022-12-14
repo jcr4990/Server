@@ -5394,6 +5394,7 @@ void Client::Handle_OP_DeleteItem(const EQApplicationPacket *app)
 		auto e = PlayerEvent::DestroyItemEvent{
 			.item_id = inst->GetItem()->ID,
 			.item_name = inst->GetItem()->Name,
+			.charges = inst->GetCharges(),
 			.reason = "Client deleted",
 		};
 
