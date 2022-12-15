@@ -2085,6 +2085,7 @@ private:
 	bool m_bot_precombat;
 
 	bool CanTradeFVNoDropItem();
+	void PlayerTradeEventLog(Trade *t, Trade *t2);
 };
 
 #endif
