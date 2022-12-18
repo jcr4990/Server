@@ -3986,6 +3986,11 @@ int8 Perl__does_augment_fit_slot(EQ::ItemInstance* inst, uint32 augment_id, uint
 	return quest_manager.DoesAugmentFit(inst, augment_id, augment_slot);
 }
 
+void Perl__send_player_handin_event()
+{
+	quest_manager.SendPlayerHandinEvent();
+}
+
 void perl_register_quest()
 {
 	perl::interpreter perl(PERL_GET_THX);
@@ -4518,6 +4523,7 @@ void perl_register_quest()
 	package.add("scribespells", (int(*)(int, int))&Perl__scribespells);
 	package.add("secondstotime", &Perl__secondstotime);
 	package.add("selfcast", &Perl__selfcast);
+	package.add("send_player_handin_event", &Perl__send_player_handin_event);
 	package.add("setaaexpmodifierbycharid", (void(*)(uint32, uint32, double))&Perl__setaaexpmodifierbycharid);
 	package.add("setaaexpmodifierbycharid", (void(*)(uint32, uint32, double, int16))&Perl__setaaexpmodifierbycharid);
 	package.add("set_proximity", (void(*)(float, float, float, float))&Perl__set_proximity);

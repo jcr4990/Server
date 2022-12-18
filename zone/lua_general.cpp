@@ -3705,6 +3705,11 @@ int8 lua_does_augment_fit_slot(Lua_ItemInst inst, uint32 augment_id, uint8 augme
 	return quest_manager.DoesAugmentFit(inst, augment_id, augment_slot);
 }
 
+void lua_send_player_handin_event()
+{
+	quest_manager.SendPlayerHandinEvent();
+}
+
 #define LuaCreateNPCParse(name, c_type, default_value) do { \
 	cur = table[#name]; \
 	if(luabind::type(cur) != LUA_TNIL) { \
@@ -4224,6 +4229,9 @@ luabind::scope lua_register_general() {
 		luabind::def("do_augment_slots_match", &lua_do_augment_slots_match),
 		luabind::def("does_augment_fit", (int8(*)(Lua_ItemInst, uint32))&lua_does_augment_fit),
 		luabind::def("does_augment_fit_slot", (int8(*)(Lua_ItemInst, uint32, uint8))&lua_does_augment_fit_slot),
+		luabind::def("does_augment_fit", &lua_does_augment_fit),
+		luabind::def("send_player_handin_event", (void(*)(void))&lua_send_player_handin_event),
+
 		/*
 			Cross Zone
 		*/
