@@ -494,7 +494,8 @@ void Object::HandleCombine(Client* user, const NewCombine_Struct* in_combine, Ob
 			auto e = PlayerEvent::CombineEvent{
 				.recipe_id = spec.recipe_id,
 				.recipe_name = spec.name,
-				.made_count = spec.madecount
+				.made_count = spec.madecount,
+				.tradeskill_id = (uint32)spec.tradeskill
 			};
 			RecordPlayerEventLogWithClient(user, PlayerEvent::COMBINE_SUCCESS, e);
 		}
@@ -505,7 +506,8 @@ void Object::HandleCombine(Client* user, const NewCombine_Struct* in_combine, Ob
 			auto e = PlayerEvent::CombineEvent{
 				.recipe_id = spec.recipe_id,
 				.recipe_name = spec.name,
-				.made_count = spec.madecount
+				.made_count = spec.madecount,
+				.tradeskill_id = (uint32)spec.tradeskill
 			};
 			RecordPlayerEventLogWithClient(user, PlayerEvent::COMBINE_FAILURE, e);
 		}
