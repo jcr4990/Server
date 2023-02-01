@@ -7007,9 +7007,14 @@ void Mob::SetHP(int64 hp)
 		return;
 	}
 
-	if (combat_record.InCombat()) {
-		combat_record.ProcessHPEvent(hp, current_hp);
+	if (m_combat_record.InCombat()) {
+		m_combat_record.ProcessHPEvent(hp, current_hp);
 	}
 
 	current_hp = hp;
+}
+
+const CombatRecord &Mob::GetCombatRecord() const
+{
+	return m_combat_record;
 }
