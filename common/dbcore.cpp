@@ -285,11 +285,6 @@ bool DBcore::Open(uint32 *errnum, char *errbuf)
 	}
 }
 
-void DBcore::SetMysql(MYSQL *mysql)
-{
-	DBcore::mysql = *mysql;
-}
-
 const std::string &DBcore::GetOriginHost() const
 {
 	return origin_host;
